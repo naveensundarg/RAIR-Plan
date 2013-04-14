@@ -1,11 +1,14 @@
 ;; choose and fail code 
 (defparameter *paths* nil)
+(defconstant failsym '@)
+(defun failed? (ans) (equalp ans failsym))
+
 (defun set= (s1 s2)
   (null (set-exclusive-or s1 s2)))
 (defun fail ()
     (if *paths*
            (funcall (pop *paths*))
-           (error  "Planner exhausted all options")))
+           failsym))
  (defmacro choose-bind (var choices &body body)
     `(cb #'(lambda (,var) ,@body) ,choices))
 
@@ -17,11 +20,7 @@
                         *paths*))
             (funcall fn (car choices)))
           (fail)))
-
-;;; planning code
-(defun make-plan (current actions final)
-  (setf *paths* nil)
-  (labels ((make-plan-inner (current actions final &optional (current-path ()))
+(defun make-plan-inner (current actions final &optional (current-path ()))
 	     (if (reached? final current) 
 		 (plan ())
 		 (choose-bind an-action actions
@@ -30,10 +29,18 @@
 		   (print current)
 		   (print "*****************")
 		   (if (and (not (seen? an-action current current-path)) (action-allowed? an-action current))
-		       (plan-cons an-action 
-				  (make-plan-inner (resultant an-action current) actions final
-						   (cons (list an-action current) current-path)))
-		       (fail))))))
+		       (let ((reduced-plan (let ((*paths* nil))
+					     (make-plan-inner (resultant an-action current) actions final
+							      (cons (list an-action current) current-path)))))
+			 (if (failed? reduced-plan)
+			     (fail)
+			     (plan-cons an-action reduced-plan)))
+		       (fail)))))
+(trace make-plan-inner)
+(trace plan-cons) (untrace)
+;;; planning code
+(defun make-plan (current actions final)
+  (let ((*paths* nil))
     (make-plan-inner current actions final)))
 
 (defclass action ()
@@ -221,32 +228,63 @@
 
 (defparameter *test-tire-problem*
   (list (state '(at flat axle) '(at spare trunk))
-	(list (action "remove spare from trunk" 
-		      (list '(at spare trunk))
-		      (list  '(at spare ground))
-		      (list '(at spare trunk)))
-	      (action "remove flat from axle"
-		      (list '(at flat axle))
-		      (list '(at flat ground))
-		      (list '(at flat axle)))
-	      (action "put spare on axle"
-		      (list '(at spare ground))
-		      (list '(at spare axle))
-		      (list '(at spare ground)))
-	      (action "leave overnight"
+	(list 
+	  (action "leave overnight"
 		      ()
 		      ()
 		      (list '(at spare ground)
 			    '(at spare axle)
 			    '(at spare trunk)
 			    '(at flat ground)
-			    '(at flat axle))))
+			    '(at flat axle)))
+	  (action "remove spare from trunk" 
+		  (list '(at spare trunk))
+		  (list  '(at spare ground))
+		  (list '(at spare trunk)))
+	  (action "remove flat from axle"
+		  (list '(at flat axle))
+		  (list '(at flat ground))
+		  (list '(at flat axle)))
+	  (action "put spare on axle"
+		  (list '(at spare ground))
+		  (list '(at spare axle))
+		  (list '(at spare ground))))
 	(state '(at spare axle))))
 
-(apply #'make-plan *test-tire-problem*)
+(defparameter *test-tire-problem-new*
+  (list (state '(at flat axle) '(at spare trunk))
+	(list 
+	  (action "leave overnight"
+		      (list '(at flat axle) '(at spare trunk))
+		      ()
+		      (list '(at spare ground)
+			    '(at spare axle)
+			    '(at spare trunk)
+			    '(at flat ground)
+			    '(at flat axle)))
+	  (action "remove spare from trunk" 
+		  (list '(at spare trunk))
+		  (list  '(at spare ground))
+		  (list '(at spare trunk))))
+	(state '(at spare ground))))
 
+(apply #'make-plan *test-tire-problem-new*)
 
+(action-allowed? 
+ (action "remove spare from runk" 
+	 (list '(at spare trunk))
+	 (list  'at-spare-ground)
+	 (list '(at spare trunk)))
+ (state 'at-flat-axle '(at spare trunk)))
 
-
+(resultant  (action "leave overnight"
+		      (list '(at flat axle) '(at spare trunk))
+		      ()
+		      (list '(at spare ground)
+			    '(at spare axle)
+			    '(at spare trunk)
+			    '(at flat ground)
+			    '(at flat axle)))
+(state '(at flat axle) '(at spare trunk)))
 
 
