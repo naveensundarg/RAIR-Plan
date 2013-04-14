@@ -24,10 +24,6 @@
 	     (if (reached? final current) 
 		 (plan ())
 		 (choose-bind an-action actions
-		   (print "*****************")
-		   (print an-action)
-		   (print current)
-		   (print "*****************")
 		   (if (and (not (seen? an-action current current-path)) (action-allowed? an-action current))
 		       (let ((reduced-plan (let ((*paths* nil))
 					     (make-plan-inner (resultant an-action current) actions final
@@ -36,8 +32,6 @@
 			     (fail)
 			     (plan-cons an-action reduced-plan)))
 		       (fail)))))
-(trace make-plan-inner)
-(trace plan-cons) (untrace)
 ;;; planning code
 (defun make-plan (current actions final)
   (let ((*paths* nil))
@@ -204,16 +198,6 @@
 	 (action "eat-food" '(hungry)  '(not-hungry) '(hungry)))
 	(state  'rich)))
 
-(defun range (a b) (loop for i from a to b collect i))
-(defparameter *tests* 
-  (let ((total-tests 10))
-    (mapcar (lambda (n) (eval (read-from-string (concatenate 'string "*test-" (princ-to-string n) "*"))))
-	    (range 1 total-tests))))
-
-(defun run-tests ()
-  (mapcar (lambda (test-case) (apply #'make-plan test-case)) *tests*))
-
-;(run-tests)
 
 
 ; this should fail
@@ -223,7 +207,6 @@
 	 (action "goofoff" () '(tired) ()))
 	(state  'rich)))
 
-;(apply #'make-plan *test-goofoff*)
 
 
 (defparameter *test-tire-problem*
@@ -251,40 +234,13 @@
 		  (list '(at spare ground))))
 	(state '(at spare axle))))
 
-(defparameter *test-tire-problem-new*
-  (list (state '(at flat axle) '(at spare trunk))
-	(list 
-	  (action "leave overnight"
-		      (list '(at flat axle) '(at spare trunk))
-		      ()
-		      (list '(at spare ground)
-			    '(at spare axle)
-			    '(at spare trunk)
-			    '(at flat ground)
-			    '(at flat axle)))
-	  (action "remove spare from trunk" 
-		  (list '(at spare trunk))
-		  (list  '(at spare ground))
-		  (list '(at spare trunk))))
-	(state '(at spare ground))))
+(defun range (a b) (loop for i from a to b collect i))
+(defparameter *tests* 
+  (let ((total-tests 10))
+    (mapcar (lambda (n) (eval (read-from-string (concatenate 'string "*test-" (princ-to-string n) "*"))))
+	    (range 1 total-tests))))
 
-(apply #'make-plan *test-tire-problem-new*)
+(defun run-tests ()
+  (mapcar (lambda (test-case) (apply #'make-plan test-case)) *tests*))
 
-(action-allowed? 
- (action "remove spare from runk" 
-	 (list '(at spare trunk))
-	 (list  'at-spare-ground)
-	 (list '(at spare trunk)))
- (state 'at-flat-axle '(at spare trunk)))
-
-(resultant  (action "leave overnight"
-		      (list '(at flat axle) '(at spare trunk))
-		      ()
-		      (list '(at spare ground)
-			    '(at spare axle)
-			    '(at spare trunk)
-			    '(at flat ground)
-			    '(at flat axle)))
-(state '(at flat axle) '(at spare trunk)))
-
-
+(run-tests)
