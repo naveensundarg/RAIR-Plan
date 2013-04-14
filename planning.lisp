@@ -25,6 +25,10 @@
 	     (if (reached? final current) 
 		 (plan ())
 		 (choose-bind an-action actions
+		   (print "*****************")
+		   (print an-action)
+		   (print current)
+		   (print "*****************")
 		   (if (and (not (seen? an-action current current-path)) (action-allowed? an-action current))
 		       (plan-cons an-action 
 				  (make-plan-inner (resultant an-action current) actions final
@@ -71,11 +75,12 @@
 (defgeneric action-allowed? (a s))
 
 (defmethod action-allowed? ((a action) (s state))
-  (subsetp (action-preconds a) (state-fluents s)))
+  (subsetp (action-preconds a) (state-fluents s) :test #'equalp))
 
 (defgeneric resultant (a s))
 (defmethod resultant ((a action) (s state))
-  (make-instance 'state :sf (union (action-adds a) (set-difference (state-fluents s) (action-dels a)))))
+  (make-instance 'state :sf (union (action-adds a) (set-difference (state-fluents s) (action-dels a) :test #'equalp)
+				   :test #'equalp)))
 
 (defparameter *past* 2)
 (defgeneric seen? (a s current-path))
@@ -210,10 +215,42 @@
 	(list 
 	 (action "goofoff" () '(tired) ()))
 	(state  'rich)))
-(apply #'make-plan *test-goofoff*)
+
+;(apply #'make-plan *test-goofoff*)
 
 
+(defparameter *test-tire-problem*
+  (list (state '(at flat axle) '(at spare trunk))
+	(list (action "remove spare from trunk" 
+		      (list '(at spare trunk))
+		      (list  '(at spare ground))
+		      (list '(at spare trunk)))
+	      (action "remove flat from axle"
+		      (list '(at flat axle))
+		      (list '(at flat ground))
+		      (list '(at flat axle)))
+	      (action "put spare on axle"
+		      (list '(at spare ground))
+		      (list '(at spare axle))
+		      (list '(at spare ground)))
+	      (action "leave overnight"
+		      ()
+		      ()
+		      (list '(at spare ground)
+			    '(at spare axle)
+			    '(at spare trunk)
+			    '(at flat ground)
+			    '(at flat axle))))
+	(state '(at spare axle))))
 
+(apply #'make-plan *test-tire-problem*)
+
+(action-allowed? 
+ (action "remove spare from runk" 
+	 (list '(at spare trunk))
+	 (list  'at-spare-ground)
+	 (list '(at spare trunk)))
+ (state 'at-flat-axle '(at spare trunk)))
 
 
 
