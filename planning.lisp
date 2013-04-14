@@ -245,12 +245,7 @@
 
 (apply #'make-plan *test-tire-problem*)
 
-(action-allowed? 
- (action "remove spare from runk" 
-	 (list '(at spare trunk))
-	 (list  'at-spare-ground)
-	 (list '(at spare trunk)))
- (state 'at-flat-axle '(at spare trunk)))
+
 
 
 
