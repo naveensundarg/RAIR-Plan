@@ -12,31 +12,19 @@
  (defmacro choose-bind (var choices &body body)
     `(cb #'(lambda (,var) ,@body) ,choices))
 
- (defun cb (fn choices)
-    (if choices
-          (progn
-            (if (cdr choices)
-                (push #'(lambda () (cb fn (cdr choices)))
-                        *paths*))
-            (funcall fn (car choices)))
-          (fail)))
-(defun make-plan-inner (current actions final &optional (current-path ()))
-	     (if (reached? final current) 
-		 (plan ())
-		 (choose-bind an-action actions
-		   (if (and (not (seen? an-action current current-path)) (action-allowed? an-action current))
-		       (let ((reduced-plan (let ((*paths* nil))
-					     (make-plan-inner (resultant an-action current) actions final
-							      (cons (list an-action current) current-path)))))
-			 (if (failed? reduced-plan)
-			     (fail)
-			     (plan-cons an-action reduced-plan)))
-		       (fail)))))
-;;; planning code
-(defun make-plan (current actions final)
-  (let ((*paths* nil))
-    (make-plan-inner current actions final)))
+(defun cb (fn choices)
+  (if choices
+      (let ((*paths* nil))  
+	(progn
+	  (if (cdr choices)
+	      (push #'(lambda () (cb fn (cdr choices)))
+		    *paths*))
+	  (funcall fn (car choices))))
+      (fail)))
 
+;;; planning code
+
+;;; Action class
 (defclass action ()
   ((name :accessor action-name :initarg :name)
    (preconds :accessor action-preconds :initarg :preconds)
@@ -53,17 +41,22 @@
     (format out "+[~s] " (action-adds obj))
     (format out "-[~s] " (action-dels obj))))
 
+;;;; State class
 (defclass state ()
   ((fluents :accessor state-fluents :initarg :sf)))
+
 (defmethod state= ((s1 state) (s2 state)) (set= (state-fluents s1) (state-fluents s2)))
 
 (defmethod print-object ((obj state) out)
   (print-unreadable-object (obj out :type t)
     (format out "~s" (state-fluents obj))))
 
+;;; Plan class
 (defclass plan ()
   ((actions :accessor plan-actions :initarg :actions)))
+
 (defgeneric plan-cons(a p))
+
 (defmethod plan-cons ((a action) (p plan))
   (plan (cons a (plan-actions p))))
 
@@ -103,6 +96,23 @@
 
 (defun plan (actions)
   (make-instance 'plan :actions actions))
+
+(defun make-plan-inner (current actions final &optional (current-path ()))
+	     (if (reached? final current) 
+		 (plan ())
+		 (choose-bind an-action actions
+		   (if (and (not (seen? an-action current current-path)) (action-allowed? an-action current))
+		       (let ((reduced-plan
+			       (make-plan-inner (resultant an-action current) actions final
+						(cons (list an-action current) current-path))))
+			 (if (failed? reduced-plan)
+			     (fail)
+			     (plan-cons an-action reduced-plan)))
+		       (fail)))))
+
+(defun make-plan (current actions final)
+  (make-plan-inner current actions final))
+
 
 ;;;;;; Testing follows
 
@@ -234,6 +244,31 @@
 		  (list '(at spare ground))))
 	(state '(at spare axle))))
 
+(defparameter *test-tire-problem*
+  (list (state '(at flat axle) '(at spare trunk))
+	(list 
+	  (action "leave overnight"
+		      ()
+		      ()
+		      (list '(at spare ground)
+			    '(at spare axle)
+			    '(at spare trunk)
+			    '(at flat ground)
+			    '(at flat axle)))
+	  (action "remove spare from trunk" 
+		  (list '(at spare trunk))
+		  (list  '(at spare ground))
+		  (list '(at spare trunk)))
+	  (action "remove flat from axle"
+		  (list '(at flat axle))
+		  (list '(at flat ground))
+		  (list '(at flat axle)))
+	  (action "put spare on axle"
+		  (list '(at spare ground))
+		  (list '(at spare axle))
+		  (list '(at spare ground))))
+	(state '(at spare axle))))
+
 (defun range (a b) (loop for i from a to b collect i))
 (defparameter *tests* 
   (let ((total-tests 10))
@@ -244,3 +279,5 @@
   (mapcar (lambda (test-case) (apply #'make-plan test-case)) *tests*))
 
 (run-tests)
+
+(apply #'make-plan *test-tire-problem*)
