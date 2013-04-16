@@ -2,6 +2,18 @@
 (defparameter *paths* nil)
 (defconstant failsym '@)
 (defun failed? (ans) (equalp ans failsym))
+(defmacro choose (&rest choices)
+    (if choices
+	`(let ((*paths* nil))
+	   (call/cc (lambda (cc) (progn
+				   ,@(mapcar #'(lambda (c)
+						 `(push #'(lambda () (funcall cc ,c)) *paths*))
+					     (reverse (cdr choices)))
+				   (funcall cc ,(car choices))))))
+	'(fail)))
+
+(defmacro let= ( &body all)
+  `(with-call/cc (let ,@all)))
 
 (defun set= (s1 s2)
   (null (set-exclusive-or s1 s2)))
@@ -60,6 +72,12 @@
 (defmethod plan-cons ((a action) (p plan))
   (plan (cons a (plan-actions p))))
 
+
+(defgeneric plan-reverse (p))
+
+(defmethod plan-reverse ((p plan))
+  (plan (reverse (plan-actions p))))
+
 (defmethod print-object ((obj plan) out)
   (print-unreadable-object (obj out :type t)
     (mapcar (lambda (a)
@@ -67,15 +85,26 @@
 	    (plan-actions obj))))
 
 (defgeneric action-allowed? (a s))
-
 (defmethod action-allowed? ((a action) (s state))
   (subsetp (action-preconds a) (state-fluents s) :test #'equalp))
 
-(defgeneric resultant (a s))
-(defmethod resultant ((a action) (s state))
+
+
+(defgeneric action-useful? (a s))
+(defmethod action-useful? ((a action) (s state))
+  (and (subsetp (action-adds a) (state-fluents s)  :test #'equalp)
+       (not (intersection (state-fluents s) (action-dels a) :test #'equalp))))
+
+(defgeneric resultant-forward (a s))
+(defmethod resultant-forward ((a action) (s state))
   (make-instance 'state :sf (union (action-adds a) (set-difference (state-fluents s) (action-dels a) :test #'equalp)
 				   :test #'equalp)))
-
+(defgeneric resultant-backward (a s))
+(defmethod resultant-backward ((a action) (s state))
+  (make-instance 'state :sf (union
+			     (action-preconds a)
+			     (set-difference (state-fluents s) (action-adds a) 
+					     :test #'equalp))))
 (defparameter *past* 2)
 (defgeneric seen? (a s current-path))
 (defmethod seen? ((a action) (s state) current-path)
@@ -97,20 +126,37 @@
 (defun plan (actions)
   (make-instance 'plan :actions actions))
 
-(defun make-plan-inner (current actions final &optional (current-path ()))
+(defun make-plan-inner-forward (current actions final &optional (current-path ()))
 	     (if (reached? final current) 
 		 (plan ())
 		 (choose-bind an-action actions
 		   (if (and (not (seen? an-action current current-path)) (action-allowed? an-action current))
 		       (let ((reduced-plan
-			       (make-plan-inner (resultant an-action current) actions final
+			       (make-plan-inner-forward (resultant an-action current) actions final
 						(cons (list an-action current) current-path))))
 			 (if (failed? reduced-plan)
 			     (fail)
 			     (plan-cons an-action reduced-plan)))
 		       (fail)))))
 
-(defun make-plan (current actions final)
-  (make-plan-inner current actions final))
+(defun make-plan-inner-backward (current actions final &optional (current-path ()))
+  (if (reached? final current) 
+      (plan ())
+      (choose-bind an-action actions
+	(if (and (not (seen? an-action final current-path)) (action-useful? an-action final))
+	    (let ((reduced-plan
+		   (make-plan-inner-backward current actions (resultant-forward an-action final) 
+				    (cons (list an-action final) current-path))))
+	      (if (failed? reduced-plan)
+		  (fail)
+		   (plan-cons an-action reduced-plan)))
+	    (fail)))))
+
+
+
+(defun make-plan (current actions final &optional (backward? t))
+  (if backward?
+      (plan-reverse (make-plan-inner-backward current actions final))
+      (make-plan-inner-forward current actions final)))
 
 

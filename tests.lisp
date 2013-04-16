@@ -148,7 +148,7 @@
 		  (list '(at flat ground))
 		  (list '(at flat axle)))
 	  (action "put spare on axle"
-		  (list '(at spare ground))
+		  (list '(at spare ground) '(at flat ground))
 		  (list '(at spare axle))
 		  (list '(at spare ground))))
 	(state '(at spare axle))))
