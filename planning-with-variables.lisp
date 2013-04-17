@@ -135,13 +135,17 @@
 (defmethod resultant-forward ((a action) (s state))
   (make-instance 'state :sf (union (action-adds a) (set-difference (state-fluents s) (action-dels a) :test #'equalp)
 				   :test #'equalp)))
+
+(defun state-form= (x y)
+  (setup-snark)
+  (if :PROOF- (prove `(iff ,x ,y ))))
 (defgeneric resultant-backward-vars (a s params))
 (defmethod resultant-backward-vars ((a action) (s state) params)
   (make-instance 'state :sf (union
 			     (substitute-vars-list params (action-params a) (action-preconds a))
 			     (set-difference (substitute-vars-list params (action-params a) (state-fluents s))
 					     (substitute-vars-list params (action-params a) (action-adds a)) 
-					     :test #'equalp))))
+					     :test #'state-form=))))
 (defparameter *past* 2)
 (defgeneric seen? (a s current-path))
 (defmethod seen? ((a action) (s state) current-path)
@@ -220,7 +224,7 @@
 
 (defun make-plan-vars (current actions final &optional (backward? t))
   (if backward?
-      (plan-reverse (make-plan-inner-backward-vars current actions final))
+       (make-plan-inner-backward-vars current actions final)
       (make-plan-inner-forward current actions final)))
 
 
