@@ -132,7 +132,7 @@
 		 (choose-bind an-action actions
 		   (if (and (not (seen? an-action current current-path)) (action-allowed? an-action current))
 		       (let ((reduced-plan
-			       (make-plan-inner-forward (resultant an-action current) actions final
+			       (make-plan-inner-forward (resultant-forward an-action current) actions final
 						(cons (list an-action current) current-path))))
 			 (if (failed? reduced-plan)
 			     (fail)
@@ -145,7 +145,7 @@
       (choose-bind an-action actions
 	(if (and (not (seen? an-action final current-path)) (action-useful? an-action final))
 	    (let ((reduced-plan
-		   (make-plan-inner-backward current actions (resultant-forward an-action final) 
+		   (make-plan-inner-backward current actions (resultant-backward an-action final) 
 				    (cons (list an-action final) current-path))))
 	      (if (failed? reduced-plan)
 		  (fail)
