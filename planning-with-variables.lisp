@@ -26,7 +26,7 @@
   (snark:prove-supported t)
   (snark:use-hyperresolution t)
   (snark:use-paramodulation t)
-  ;(snark:allow-skolem-symbols-in-answers nil)
+  (snark:allow-skolem-symbols-in-answers t)
   (snark::declare-code-for-numbers))
 
 
@@ -37,6 +37,11 @@
 (defun set= (s1 s2)
   (null (set-exclusive-or s1 s2)))
 
+(defun skolem-sym? (x) (if (and (>= (length (symbol-name x)) 5) (string= "SKOLEM" (subseq (symbol-name x) 0 6))) x))
+(defun skolems (form)
+  (if  (atom form)
+       (skolem-sym? form)
+       (mapcar #'skolems (rest form))))
 (defun substitute-var (value var form)
   (if (equalp var form)
       value
@@ -45,7 +50,7 @@
 	   (cons (substitute-var value var (first form))
 		 (substitute-var value var (rest form))))))
 (defun substitute-vars-list (values vars form)
-  (if (null values)
+  (if (or (null values) (atom values))
       form
       (substitute-vars-list 
        (rest values) (rest vars) 
@@ -93,7 +98,11 @@
 (defclass state ()
   ((fluents :accessor state-fluents :initarg :sf)))
 
-(defmethod state= ((s1 state) (s2 state)) (set= (state-fluents s1) (state-fluents s2)))
+(defmethod state= ((s1 state) (s2 state)) 
+  (or
+   (set= (state-fluents s1) (state-fluents s2))
+   (and (in-closure? s1 s2)
+	(in-closure? s2 s2))))
 
 (defmethod print-object ((obj state) out)
   (print-unreadable-object (obj out :type t)
@@ -104,27 +113,24 @@
   ((actions :accessor plan-actions :initarg :actions)))
 
 (defgeneric plan-cons(a p))
-
 (defmethod plan-cons (a (p plan))
   (plan (cons a (plan-actions p))))
 
-
 (defgeneric plan-reverse (p))
-
 (defmethod plan-reverse ((p plan))
   (plan (reverse (plan-actions p))))
 
 (defmethod print-object ((obj plan) out)
   (print-unreadable-object (obj out :type t)
     (mapcar (lambda (a)
-	      (format out "[~s(~s)] " (action-name (first a)) (second a)))
+	      (format out "[~s(~a)] " (action-name (first a)) (if (atom (second a))
+								""
+								 (second a))))
 	    (plan-actions obj))))
 
 (defgeneric action-allowed? (a s))
 (defmethod action-allowed? ((a action) (s state))
   (subsetp (action-preconds a) (state-fluents s) :test #'equalp))
-
-
 
 (defgeneric action-useful? (a s))
 (defmethod action-useful? ((a action) (s state))
@@ -138,14 +144,19 @@
 
 (defun state-form= (x y)
   (setup-snark)
-  (if :PROOF- (prove `(iff ,x ,y ))))
+  (if (eq :PROOF-FOUND (prove `(iff ,x ,y )))
+      t nil))
+
 (defgeneric resultant-backward-vars (a s params))
 (defmethod resultant-backward-vars ((a action) (s state) params)
   (make-instance 'state :sf (union
 			     (substitute-vars-list params (action-params a) (action-preconds a))
-			     (set-difference (substitute-vars-list params (action-params a) (state-fluents s))
-					     (substitute-vars-list params (action-params a) (action-adds a)) 
-					     :test #'state-form=))))
+			     (set-difference  (state-fluents s)
+					      (mapcar (lambda (f) (if (atom params)
+								      f
+								      `(exists ,(skolems f) ,f)))
+						      (substitute-vars-list params (action-params a) (action-adds a))) 
+					      :test #'state-form=))))
 (defparameter *past* 2)
 (defgeneric seen? (a s current-path))
 (defmethod seen? ((a action) (s state) current-path)
@@ -189,9 +200,12 @@
     (snark::assert `(forall ,params
 			    (snark::implies (and ,@(action-adds a))
 					    (action ,@params))))
-    (let ((bindings (rest (snark:answer (prove `(action ,@(action-params a)) :answer `(params ,@params))))))
-      (if (null bindings)
-	  nil bindings))))
+    (let* ((result (prove `(action ,@(action-params a)) :answer `(params ,@params)))
+	   (bindings (rest (snark:answer result))))
+      (if (and (eq result :PROOF-FOUND) (null params))
+	  t
+	  (if (null bindings)
+	      nil bindings)))))
 ;;;
 (defun make-plan-inner-forward (current actions final &optional (current-path ()))
 	     (if (reached? final current) 

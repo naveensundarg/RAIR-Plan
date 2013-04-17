@@ -85,7 +85,7 @@
   (list (state 'hungry 'thirsty 'work-unfinished 'work-not-submitted 'poor)
 	(list 
 	 (action "sell-work" '(work-submitted) '(rich) '(poor))
-	 (action "run" '(not-hungry not-thirsty ) '(tired) '(hungry thirsty))
+	 (action "run" '(not-hungry not-thirsty ) '(tired) '(not-hungry not-thirsty))
 	 (action "work" '(not-hungry not-thirsty work-unfinished) '(work-finished) '(work-unfinished))
 	 (action "submit" '(work-finished) '(work-submitted) '(work-not-submitted))
 	 (action "drink-water" '(thirsty)  '(not-thirsty) '(thirsty))

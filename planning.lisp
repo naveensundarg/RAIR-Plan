@@ -1,4 +1,5 @@
 ;; choose and fail code 
+(in-package :snark-user)
 (defparameter *paths* nil)
 (defconstant failsym '@)
 (defun failed? (ans) (equalp ans failsym))
