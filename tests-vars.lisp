@@ -17,10 +17,10 @@
   (state '(bid 0)))
 
 (defparameter *goal-state*
-  (state '(bid 5)))
+  (state '(bid 50)))
 
 (defparameter *post-new-bid-action*
-  (action 'post-new-bid '(?number) (list '(bid ($$sum -1 ?number))) (list '(bid ?number)) (list )))
+  (action 'post-new-bid '(?number) (list '(bid ($$sum -1 ?number))) (list '(bid ?number)) (list '(bid ($$sum -1 ?number) ))))
 
 (make-plan-vars *initial-state* (list *post-new-bid-action* ) *goal-state*)
 
