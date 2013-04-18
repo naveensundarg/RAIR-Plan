@@ -25,8 +25,10 @@
   (snark:assume-supported t)
   (snark:prove-supported t)
   (snark:use-hyperresolution t)
+  (declare-variable '?number :sort 'integer)
   (snark:use-paramodulation t)
   (snark:allow-skolem-symbols-in-answers t)
+  (snark:declare-constant '0 :sort 'integer)
   (snark::declare-code-for-numbers))
 
 
@@ -37,11 +39,11 @@
 (defun set= (s1 s2)
   (null (set-exclusive-or s1 s2)))
 
-(defun skolem-sym? (x) (if (and (>= (length (symbol-name x)) 5) (string= "SKOLEM" (subseq (symbol-name x) 0 6))) x))
+(defun skolem-sym? (x) (if (and (symbolp x) (>= (length (symbol-name x)) 5) (string= "SKOLEM" (subseq (symbol-name x) 0 6))) x))
 (defun skolems (form)
   (if  (atom form)
        (skolem-sym? form)
-       (mapcar #'skolems (rest form))))
+       (reduce #'append (mapcar #'skolems (rest form)))))
 (defun substitute-var (value var form)
   (if (equalp var form)
       value
@@ -123,8 +125,8 @@
 (defmethod print-object ((obj plan) out)
   (print-unreadable-object (obj out :type t)
     (mapcar (lambda (a)
-	      (format out "[~s(~a)] " (action-name (first a)) (if (atom (second a))
-								""
+	      (format out "[~s~a] " (action-name (first a)) (if (atom (second a))
+								"()"
 								 (second a))))
 	    (plan-actions obj))))
 
@@ -197,15 +199,15 @@
   (let ((params (action-params a)))
     (setup-snark)
     (mapcar #'snark::assert (state-fluents s))
-    (snark::assert `(forall ,params
-			    (snark::implies (and ,@(action-adds a))
-					    (action ,@params))))
-    (let* ((result (prove `(action ,@(action-params a)) :answer `(params ,@params)))
-	   (bindings (rest (snark:answer result))))
-      (if (and (eq result :PROOF-FOUND) (null params))
-	  t
-	  (if (null bindings)
-	      nil bindings)))))
+    (snark::assert      `(forall ,params
+      (snark::implies (and ,@(action-adds a))
+		       (action ,@params))))
+     (let* ((result (prove `(action ,@(action-params a)) :answer `(params ,@params)))
+	    (bindings (rest (snark:answer result))))
+       (if (and (eq result :PROOF-FOUND) (null params))
+	   t
+	   (if (null bindings)
+	       nil bindings)))))
 ;;;
 (defun make-plan-inner-forward (current actions final &optional (current-path ()))
 	     (if (reached? final current) 
@@ -238,7 +240,7 @@
 
 (defun make-plan-vars (current actions final &optional (backward? t))
   (if backward?
-       (make-plan-inner-backward-vars current actions final)
+      (plan-reverse (make-plan-inner-backward-vars current actions final))
       (make-plan-inner-forward current actions final)))
 
 
