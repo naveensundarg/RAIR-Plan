@@ -78,7 +78,7 @@
 
 (defun skolem-sym? (x) 
   (if (and (symbolp x) 
-	   (>= (length (symbol-name x)) 5)
+	   (>= (length (symbol-name x)) 6)
 	   (string= "SKOLEM" 
 		    (subseq (symbol-name x) 0 6))) x))
 
@@ -213,7 +213,7 @@
 
 (defgeneric resultant-backward-vars (a s params))
 (defmethod resultant-backward-vars ((a action) (s state) params)
-  (state 
+  (apply #'state 
    (union
     (substitute-vars-list params (action-params a) (action-preconds a))
     (set-difference 
@@ -298,7 +298,7 @@
       (plan-reverse (make-plan-inner-backward-vars current actions final))))
 
 
-(defun action-schema (a) (first a))
-(defun action-params (a) (second a))
+;(defun action-schema (a) (first a))
+;(defun action-params (a) (second a))
 (defmethod execute-action ((a action-instance) (s state))
   (state  'a))
