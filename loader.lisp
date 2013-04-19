@@ -31,7 +31,8 @@
 (defparameter *ql-systems* 
   (list
     "cl-cont"
-    "cl-unification"))
+    "cl-unification"
+    "lisp-unit"))
 
 (map nil 'ql:quickload *ql-systems*)
 
