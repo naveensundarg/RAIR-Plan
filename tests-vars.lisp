@@ -79,25 +79,77 @@
 		   '(forall (?x) (iff (inherits ?x) (rich ?x))))))
 
 (time (make-plan-vars 
-	     (state '(alive jack) )
-	     (list (action 'kill '(?x) (list '(alive ?x)) (list '(dead ?x)) (list '(alive ?x)))
-		   (action 'break '(?x) (list '(unbroken ?x)) (list '(broken ?x)) (list '(unbroken ?x)))
-		   (action 'fly-to-moon '(?x) (list '(rich ?x)) (list '(at moon ?x)) ())
-		   (action 'run () () () ()))
-	     (state '(at moon me)) 
-	     (list '(forall (?x) 
-		     (iff (dead ?x) (inherits (son ?x))))
-		   '(= me (son jack))
-		   '(forall (?x) (iff (inherits ?x) (rich ?x))))))
+       (state '(alive jack) )
+       (list (action 'kill '(?x) (list '(alive ?x)) (list '(dead ?x)) (list '(alive ?x)))
+	     (action 'break '(?x) (list '(unbroken ?x)) (list '(broken ?x)) (list '(unbroken ?x)))
+	     (action 'fly-to-moon '(?x) (list '(rich ?x)) (list '(at moon ?x)) ())
+	     (action 'run () () () ()))
+       (state '(at moon me)) 
+       (list '(forall (?x) 
+	       (iff (dead ?x) (inherits (son ?x))))
+	     '(= me (son jack))
+	     '(forall (?x) (iff (inherits ?x) (rich ?x))))))
 
  (time (make-plan-vars 
-	     (state '(alive jack) )
-	     (list (action 'kill '(?x) (list '(alive ?x)) (list '(dead ?x)) (list '(alive ?x)))
-		   (action 'break '(?x) (list '(unbroken ?x)) (list '(broken ?x)) (list '(unbroken ?x)))
-		  (action 'fly-to-moon '(?x) (list '(rich ?x)) (list '(at moon ?x) '(not (at earth ?x))) ()) 
-		   (action 'fire-cannon-at '(?x) (list '(not (at ?x me))) (list '(destroyed ?x)) ()))
+	     (state '(alive jack))
+	    
+	     (list (action 'kill '(?x) 
+			   (list '(alive ?x)) 
+			   (list '(dead ?x)) 
+			   (list '(alive ?x)))
+		   (action 'break '(?x) 
+			   (list '(unbroken ?x)) 
+			   (list '(broken ?x))
+			   (list '(unbroken ?x)))
+		   (action 'fly-to-moon '(?x) 
+			   (list '(rich ?x)) 
+			   (list '(at moon ?x) 
+				 '(not (at earth ?x))) ()) 
+		   (action 'fire-cannon-at '(?x) 
+			   (list '(not (at ?x me))) 
+			   (list '(destroyed ?x)) ()))
+	     
 	     (state '(destroyed earth)) 
+	     
 	     (list '(forall (?x) 
-		     (iff (dead ?x) (inherits (son ?x))))
-		   '(= me (son jack)) '(not (= moon earth)) '(or (at earth me) (at moon me))
+		     (iff (dead ?x)
+		      (inherits (son ?x))))
+		   '(= me (son jack))
+		   '(not (= moon earth)) '(or (at earth me) (at moon me))
 		   '(forall (?x) (iff (inherits ?x) (rich ?x))))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;; Planning for theorem proving;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defparameter *and-intro*  
+  (action 'and-intro '(?x ?y)
+	  (list '(formula ?x ?x_id) '(formula ?y ?y_id))
+	  (list '(formula (and ?x ?y) ?z_id))
+	  nil))
+
+(defparameter *or-intro-left*  
+  (action 'or-intro '(?x ?y)
+	  (list '(formula ?x ?x_id))
+	  (list '(formula (or ?x ?y) ?z_id))
+	  nil))
+
+(defparameter *or-intro-right*  
+  (action 'or-intro '(?x ?y)
+	  (list '(formula ?x ?_1))
+	  (list '(formula (or ?x ?y) ?_2))
+	  nil))
+
+(defparameter *if-elim*
+  (action 'if-elim '(?x ?y)
+	  (list '(formula ?x ?_1) '(formula (implies ?x ?y) ?_2))
+	  (list '(formula ?y ?_3))
+	  nil))
+
+(make-plan-vars (state '(formula  p 1) '(formula q 2))
+		 (list *and-intro* *or-intro-left* *or-intro-right*)
+		 (state '(formula (or (and p q) r) 3)) nil)
+
+(make-plan-vars (state '(formula p 1) '(formula (implies p q) 2))
+		(list *and-intro* *or-intro-left* *or-intro-right* *if-elim*)
+		(state '(formula q 3)) nil)
